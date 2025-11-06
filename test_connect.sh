@@ -16,7 +16,7 @@ fi
 echo "=== Testando conectividade com: $HOST ==="
 echo
 
-# 1. Teste de resolução DNS
+# 1. Teste de resolução DNS com getent
 echo "[1] Testando resolução DNS..."
 if getent hosts "$HOST" >/dev/null 2>&1; then
     echo "DNS resolvido com sucesso"
@@ -26,22 +26,24 @@ else
 fi
 echo
 
-# 2. Teste de ping
-echo "[2] Testando ping..."
-if ping -c 2 "$HOST" >/dev/null 2>&1; then
-    echo "Ping OK (host alcançável)"
-else
-    echo "Ping falhou (pode estar bloqueado, mas o host pode existir)"
-fi
-echo
-
-# 3. Testar portas com nc
-echo "[3] Testando portas com nc..."
+# 2. Testar portas com nc
+echo "[2] Testando portas com nc..."
 for PORT in $PORTS; do
     if nc -z -w 3 "$HOST" "$PORT" >/dev/null 2>&1; then
-        echo "Porta $PORT aberta"
+        echo "Porta $PORT acessível (nc conectou)"
     else
-        echo "Porta $PORT inacessível"
+        echo "Porta $PORT inacessível (nc falhou)"
+    fi
+done
+echo
+
+# 3. Testar portas com telnet
+echo "[3] Testando portas com telnet..."
+for PORT in $PORTS; do
+    if echo quit | telnet "$HOST" "$PORT" >/dev/null 2>&1; then
+        echo "Porta $PORT acessível (telnet conectou)"
+    else
+        echo "Porta $PORT inacessível (telnet falhou)"
     fi
 done
 echo
@@ -49,15 +51,17 @@ echo
 # 4. Teste HTTP/HTTPS com curl
 echo "[4] Testando HTTP/HTTPS..."
 for PORT in $PORTS; do
-    if [ "$PORT" == "80" ] || [ "$PORT" == "443" ] || [ "$PORT" == "8080" ]; then
-        URL="http://$HOST:$PORT"
-        echo "Testando $URL ..."
-        if curl -Is "$URL" >/dev/null 2>&1; then
-            echo "Resposta HTTP recebida na porta $PORT"
-        else
-            echo "Nenhuma resposta HTTP na porta $PORT"
-        fi
-    fi
+    case "$PORT" in
+        80|443|8080)
+            URL="http://$HOST:$PORT"
+            echo "Testando $URL ..."
+            if curl -Is "$URL" >/dev/null 2>&1; then
+                echo "Resposta HTTP recebida na porta $PORT"
+            else
+                echo "Nenhuma resposta HTTP na porta $PORT"
+            fi
+            ;;
+    esac
 done
 echo
 
